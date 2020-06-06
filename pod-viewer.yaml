@@ -1,0 +1,28 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: pod-reader-role
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods","pods/log"]
+  verbs: ["get", "list"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-viewer-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: pod-viewer-rb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pod-reader-role
+subjects:
+- kind: ServiceAccount
+  name: pod-viewer-sa
+  namespace: default

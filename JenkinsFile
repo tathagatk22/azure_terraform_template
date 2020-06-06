@@ -1,0 +1,217 @@
+pipeline {
+    environment {
+        terraform_vars_file = "terraform.tfvars"
+        githubRepo = "https://github.com/tathagatk22/azure_terraform_template.git"
+    }
+    agent any
+    parameters {
+		password(
+            description: 'Please insert value for subscription id', 
+            name: 'subscription_id'
+        )
+        password(
+            description: 'Please insert value for client id', 
+            name: 'client_id'
+        )
+        password(
+            description: 'Please insert value for client secret', 
+            name: 'client_secret'
+        )
+        password(
+            description: 'Please insert value for tenant id', 
+            name: 'tenant_id'
+        )
+        string(
+            description: 'Please insert value for resource Group Name', 
+            name: 'resource_group_name_value',
+            trim: true,
+            defaultValue: null
+        )
+        choice(
+            choices: 
+            [
+                "eastasia",
+                "southeastasia",
+                "centralus",
+                "eastus",
+                "eastus2",
+                "westus",
+                "northcentralus",
+                "southcentralus",
+                "northeurope",
+                "westeurope",
+                "japanwest",
+                "japaneast",
+                "brazilsouth",
+                "australiaeast",
+                "australiasoutheast",
+                "southindia",
+                "centralindia",
+                "westindia",
+                "canadacentral",
+                "canadaeast",
+                "uksouth",
+                "ukwest",
+                "westcentralus",
+                "westus2",
+                "koreacentral",
+                "koreasouth",
+                "francecentral",
+                "francesouth",
+                "australiacentral",
+                "australiacentral2",
+                "uaecentral",
+                "uaenorth",
+                "southafricanorth",
+                "southafricawest",
+                "switzerlandnorth",
+                "switzerlandwest",
+                "germanynorth",
+                "germanywestcentral",
+                "norwaywest",
+                "norwayeast"
+            ],
+            description: 'Please insert value for region',
+            name: 'region_name'
+        )
+        choice(
+            choices: 
+            [
+                "Yes",
+                "No"
+            ],
+            description: 'Please insert value for cluster dashboard',
+            name: 'dashboard_value'
+        )
+        string(
+            description: 'Please insert value for kubernetes cluster name', 
+            name: 'cluster_name_value',
+            trim: true,
+            defaultValue: null
+        )
+        string(
+            description: 'Please insert value for kubernetes node type', 
+            name: 'node_type',
+            trim: true,
+            defaultValue: "Standard_B2s"
+        )
+        string(
+            description: 'Please insert value for kubernetes node count', 
+            name: 'node_count',
+            trim: true,
+            defaultValue: "2"
+        )
+	}
+    stages {
+        stage('Validating all parameters') {
+            steps {
+                script {
+					if (params.subscription_id == '') {
+						currentBuild.result = 'ABORTED'
+						error("Build failed because of blank input.")
+					}
+                    if (params.client_id == '') {
+						currentBuild.result = 'ABORTED'
+						error("Build failed because of blank input.")
+					}
+                    if (params.client_secret == '') {
+						currentBuild.result = 'ABORTED'
+						error("Build failed because of blank input.")
+					}
+                    if (params.tenant_id == '') {
+						currentBuild.result = 'ABORTED'
+						error("Build failed because of blank input.")
+					}
+                    if (params.region_name == '') {
+						currentBuild.result = 'ABORTED'
+						error("Build failed because of blank input.")
+					}
+                    if (params.resource_group_name_value == '') {
+						currentBuild.result = 'ABORTED'
+						error("Build failed because of blank input.")
+					}
+                    if (params.cluster_name_value == '') {
+						currentBuild.result = 'ABORTED'
+						error("Build failed because of blank input.")
+					}
+                    if (params.node_type == '') {
+						currentBuild.result = 'ABORTED'
+						error("Build failed because of blank input.")
+					}
+                    if (params.node_count == '') {
+						currentBuild.result = 'ABORTED'
+						error("Build failed because of blank input.")
+					}
+                    if (params.dashboard_value == '') {
+						currentBuild.result = 'ABORTED'
+						error("Build failed because of blank input.")
+					}
+				}
+            }
+        }
+        stage('Git checkout Cluster Template') {
+            steps {
+                script {
+                    git url: "$githubRepo"
+                }
+            }
+        }
+        stage('Updating values in terraform variable file') {
+            steps {
+                script {
+                    sh (script: "sed -i 's/subscription_id = \"\"/subscription_id = \"$params.subscription_id\"/g' ${terraform_vars_file}")
+                    sh (script: "sed -i 's/client_id = \"\"/client_id = \"$params.client_id\"/g' ${terraform_vars_file}")
+                    sh (script: "sed -i 's/client_secret = \"\"/client_secret = \"$params.client_secret\"/g' ${terraform_vars_file}")
+                    sh (script: "sed -i 's/tenant_id = \"\"/tenant_id = \"$params.tenant_id\"/g' ${terraform_vars_file}")
+                    sh (script: "sed -i 's/regionName = \"\"/regionName = \"$params.region_name\"/g' ${terraform_vars_file}")
+                    sh (script: "sed -i 's/resourceGroupName = \"\"/resourceGroupName = \"$params.resource_group_name_value\"/g' ${terraform_vars_file}")
+                    sh (script: "sed -i 's/clusterName = \"\"/clusterName = \"$params.cluster_name_value\"/g' ${terraform_vars_file}")
+                    sh (script: "sed -i 's/node_type = \"\"/node_type = \"$params.node_type\"/g' ${terraform_vars_file}")
+                    sh (script: "sed -i 's/node_count = \"\"/node_count = \"$params.node_count\"/g' ${terraform_vars_file}")
+                }
+            }
+        }
+        stage('Terrafrom initialization') {
+            steps{
+                script {
+                    sh "terraform init"
+                }
+            }
+        }
+        stage('Terrafrom Plan') {
+            steps{
+                script {
+                    sh "terraform plan"
+                }
+            }
+        }
+        stage('Terrafrom apply') {
+            steps{
+                script {
+                    sh "terraform apply --auto-approve"
+                }
+            }
+        }
+        stage('Setting up Kubeconfig in Jenkins for further usage'){
+            steps{
+                script {
+                    sh "terraform output kube_config > /$HOME/.kube/config"
+                }
+            }
+        }
+        stage('Kubernetes Dashboard Deploy'){
+            steps{
+                script {
+                    if (params.dashboard_value == "Yes") {
+                        sh (script: "kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta8/aio/deploy/recommended.yaml")
+                        sh (script: "kubectl apply -f dashboard.yaml")
+                        sh (script: "kubectl describe secret -n kube-system \$(kubectl get secrets -n kube-system | grep custom-admin | cut -f1 -d ' ') | grep -E '^token' | cut -f2 -d':' | tr -d '\\t'")
+                        sleep (time:15 ,unit:"SECONDS")
+                        sh (script: "kubectl get svc kubernetes-dashboard-custom -n kubernetes-dashboard -o json | jq .status.loadBalancer.ingress[0].ip")
+                        sh (script: "kubectl label nodes \$(kubectl get node | grep 000001  | cut -f1 -d ' ') apptype=db")
+                    } 
+                }
+            }
+        }
+    }
+}
